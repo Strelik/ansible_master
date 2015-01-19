@@ -1,0 +1,245 @@
+
+
+---
+
+- hosts: do
+  user: root
+
+# Storing Variables in a seperate file because reasons.
+  vars_files:
+   - vars/variables.yml
+
+  tasks:
+
+# Test the connection
+  - name: testing connection
+
+    ping:
+
+
+  - name: create steam user account
+
+    user: state=present name=steam createhome=yes  groups=wheel append=yes password="{{User_Password}}"
+
+
+  - name: Remove Not Needed Services
+
+    service: name={{item}} enabled=no
+
+    with_items:
+    - avahi-daemon.service
+    ignore_errors: yes
+
+  - name: Stopping Services
+
+    service: name={{item}} state=stopped
+
+    with_items:
+    - avahi-daemon.service
+    - postfix.service
+    ignore_errors: yes
+
+
+
+
+
+  - name: Remove not needed users
+
+    user: name={{item}} state=absent
+
+    with_items:
+    - ftp
+    - lp
+    - games
+    - avahi
+    ignore_errors: yes
+
+
+
+  
+# Specify no tty devices is trusted for root login
+
+  - name: Ensure Securetty line is in pam.d login
+
+    shell: echo 'auth required /lib/security/pam_securetty.so' >> /etc/pam.d/login
+
+  - name: Create /etc/securetty
+
+    shell: touch /etc/securetty
+
+  - name: Specify that no device is trusted for root login
+
+    shell: echo 'null' > /etc/securetty
+
+
+
+# Make a steam directory under /opt. Change the owner to steam and enforce secure permissions
+
+  - name: Make a steam directory
+
+    file: path=/opt/steamcmd state=directory owner=steam group=steam recurse=yes
+
+
+
+
+
+# Modify ssh.config with the following options:
+
+  - name: Allow only steam user to login into the system via SSH Keys
+
+    shell: echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config
+
+  - name: Disable Root Login for SSH
+
+    shell: echo 'PermitRootLogin no' >> /etc/ssh/sshd_config
+
+  - name: Allow only steam and vagrant users to login via ssh.
+
+    shell: echo 'AllowUsers steam vagrant' >> /etc/ssh/sshd_config
+
+
+
+
+# Uploading a public ssh key data from a local file on the management machine to the remote machine's authorized key files.
+
+  - name: Upload do_key ssh key for steam user in authrorized keys.
+
+    authorized_key: user=steam key="{{ lookup('file', 'files/do2_rsa.pub') }}"
+
+    #files directory will be ignored in git so it doesn't get uploaded
+
+
+
+# Change the group affiliation of the su command, and make it remain setuid as root and executable only by group wheel members:
+
+  - name: Change the group affiliation of su to wheel
+
+    shell: chgrp wheel /bin/su
+
+  - name: Make sure setuid is still root and executable by wheel.
+
+    shell: chmod 4750 /bin/su
+
+
+
+
+  # Enable Epel repo for packages not in CentOS by default.
+
+  - name: Enable EPEL repo
+
+    shell: rpm -Uvh http://fedora-epel.mirror.lstn.net/7/x86_64/e/epel-release-7-5.noarch.rpm
+
+
+
+    
+
+# Run yum update on all packages
+
+  - name: Update All packages
+
+    yum: name=* state=latest
+
+
+
+
+# Install all necessary packages
+
+  - name: Installing Packages
+
+    yum: name={{item}} state=present
+
+    with_items:
+    - libgcc.i686
+    - glibc.i686
+    - zlib.i686
+    - ncurses-libs.i686
+    - libstdc++.i686
+    - mailx.x86_64
+    - fail2ban.noarch
+    - logrotate.x86_64
+    - logwatch.noarch
+    - yum-cron.noarch
+    - screen.x86_64
+
+
+
+# Download the steamcmd binary and save it in /opt either from valve or upload it
+  
+  - name: Download Steamcmd Package
+
+    get_url: url=http://media.steampowered.com/installer/steamcmd_linux.tar.gz dest=/opt/steamcmd mode=754
+
+  - name: Extract Steamcmd Package
+
+    shell: cd /opt/steamcmd ; tar -xvzf steamcmd_linux.tar.gz
+
+
+
+
+
+# Run the first time steamcmd setup process so it can download and install everything under /opt
+
+  - name: chmod steam files because sometimes it doesn't work if execute permissions arn't as such (don't yell at me)
+
+    shell: chmod -R +777 /opt/steamcmd/*
+
+  - name: Run Steamcmd anonymously for the first time and quit so Ansible can doing its thing.
+
+    shell: cd /opt/steamcmd ; sudo ./steamcmd.sh +quit
+
+  - name: Reset permissions on steam directory
+
+    shell: chown -R steam:steam /opt/steamcmd
+
+
+
+
+
+# Configure FirewallD as appropriate. Basically block all incoming connections allow steamcmd.
+  
+  - name: Ensure FirewallD is enabled
+
+    service: name=firewalld.service enabled=yes state=started
+
+  - name: Use FirewallD module to open up UDP ports 27000:27030
+
+    shell: "firewall-cmd --permanent --zone=public --add-port=27000-27030/udp"
+
+  - name: Use FirewallD module to open up UDP ports 4380
+
+    shell: "firewall-cmd --permanent --zone=public --add-port=4380/udp"
+
+  - name: "Disable ICMP echo requests"
+
+    shell: "firewall-cmd --permanent --zone=public --add-icmp-block=echo-request"
+
+  - name: Reload FirewallD
+
+    shell: "firewall-cmd --reload"
+
+
+# Enable and start yum-cron service so automatic updates get applied. 
+
+  - name: Start yum-cron service
+
+    service: name=yum-cron.service enabled=yes state=started
+
+#Ensure Fail2Ban service is enabled
+
+  - name: Copy default fail2ban settings so service can find it.
+
+    shell: "cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local"
+
+  - name: Start Fail2Ban Services
+
+    service: name=fail2ban.service enabled=yes state=started
+
+# Reload SSHD Config
+
+  - name: Reload SSHD Config so SSH hardening changes take effect. 
+
+    shell: "systemctl reload sshd"
+
+# That should do it for the base setup. 
+
+
