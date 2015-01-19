@@ -1,0 +1,21 @@
+---
+# possibly saved as tasks/foo.yml
+
+- name: ping test
+  ping:
+
+#Check if Mailx is installed
+- name: Install Mailxl
+  yum: name=mailx state=latest
+
+
+#upload the mail.conf file to the default users homefolder preferably not root
+- name: Copy mailrc folder to home directory
+  copy: src={{mailrcsrc}} dest={{mailrcdest}} owner=steam group=steam mode=644
+
+#upload a mozilla Firefox folder so ssl authentication works. 
+- name: Copy Mozilla folder to home directory folder for SSL certs
+  copy: src={{mozillasrc}} dest={{mozilladest}} owner=steam group=steam mode=644
+
+
+
