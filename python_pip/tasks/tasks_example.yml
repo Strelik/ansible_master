@@ -1,0 +1,7 @@
+---
+
+#This is an example of task file that has lots of tasks that you can just include in different playbooks
+
+- name: Test Connection
+  ping:
+
