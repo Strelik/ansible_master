@@ -36,6 +36,9 @@
 - name: Enable SNMP 162\udp on firewall-cmd
   shell: sudo firewall-cmd --permanent --add-port=162/udp
 
+- name: Enable ICMP Echo Requests On Firewalld for Observium querying
+  shell: sudo firewall-cmd --permanent --zone=public --remove-icmp-block=echo-request
+
 - name: Restart firewall-cmd to load the changes permanently.
   service: name=firewalld.service enabled=yes state=restarted
 
