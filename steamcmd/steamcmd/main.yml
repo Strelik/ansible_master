@@ -21,6 +21,7 @@
 
     user: state=present name=steam createhome=yes  groups=wheel append=yes password="{{User_Password}}"
 
+# Remove not needed services 
 
   - name: Remove Not Needed Services
 
@@ -42,7 +43,7 @@
 
 
 
-
+# Remove Not need users
   - name: Remove not needed users
 
     user: name={{item}} state=absent
@@ -127,7 +128,9 @@
 
   - name: Enable EPEL repo
 
-    shell: rpm -Uvh http://fedora-epel.mirror.lstn.net/7/x86_64/e/epel-release-7-5.noarch.rpm
+    shell: rpm -Uvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
+
+    ignore_errors: yes
 
 
 
@@ -221,7 +224,7 @@
 
 
 
-  #Upload Yum-cron.conf to server
+#Upload Yum-cron.conf to server
 
   - name: Upload yum-cron.conf file
 
@@ -232,7 +235,7 @@
 
   - name: Start yum-cron service
 
-    service: name=yum-cron.service enabled=yes state=restart
+    service: name=yum-cron.service enabled=yes state=restarted
 
 #Ensure Fail2Ban service is enabled
 
@@ -243,6 +246,18 @@
   - name: Start Fail2Ban Services
 
     service: name=fail2ban.service enabled=yes state=started
+
+# Upload Logwatch.conf file
+
+  - name: Upload logwatch.conf file
+
+    copy: src={{logwatsrc}} dest={{logwatdest}} owner=root group=root mode=744
+
+# Upload Logwatch.conf file
+
+  - name: Upload logwatch.conf file
+
+    copy: src={{logrotsrc}} dest={{logrotdest}} owner=root group=root mode=744
 
 # Reload SSHD Config
 
