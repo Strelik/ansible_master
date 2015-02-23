@@ -1,0 +1,8 @@
+---
+#Installs twilio Python REST API Module
+- name: Test Connection
+  ping:
+
+- name: Installs Twilio from Pip
+  shell: "sudo pip install twilio"
+
